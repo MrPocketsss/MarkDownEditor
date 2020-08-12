@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld("api", {
   },
   // this returns TO render-side
   receive: (channel, func) => {
-    let validChannels = ['file-opened', 'file-saved', 'window-closed'];
+    let validChannels = ['file-opened', 'file-saved', 'window-closed', 'call-save-file', 'call-export-file', 'call-open-file'];
     if (validChannels.includes(channel)) {
       // Deliberately strip event as it includes 'sender'
       ipcRenderer.on(channel, (event, ...args) => func(...args));

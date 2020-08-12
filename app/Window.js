@@ -54,7 +54,8 @@ const Windows = () => {
 
     let windowObject = {
       pane: newWindow, 
-      isEdited: false
+      isEdited: false,
+      isSaved: false,
     }
 
     // Add the newly created window to the windows set and then return it
@@ -63,7 +64,18 @@ const Windows = () => {
   };
 
   const getWindowFromEvent = (event) => {
-    return BrowserWindow.fromWebContents(event.sender);
+    let currentWindow = null;
+    try {
+      currentWindow = BrowserWindow.fromWebContents(event.sender);
+    }
+    catch (error) {
+      windowSet.forEach(window => {
+        if (window.pane === event) {
+          currentWindow = window.pane;
+        }
+      });
+    }
+    return currentWindow;
   };
 
   const getWindowEdited = (windowToFind) => {
@@ -77,18 +89,33 @@ const Windows = () => {
     
     return edited;
   };
+  
+  const getWindowSaved = (windowToFind) => {
+    let saved = '';
+    
+    windowSet.forEach(window => {
+      if (window.pane === windowToFind) {
+        saved = window.isSaved;
+      }
+    });
+
+    return saved;
+  }
 
   const setWindowProperty = (event, key, value) => {
     let windowToFind = getWindowFromEvent(event);
     windowSet.forEach(window => {
-      if (window.pane === windowToFind && window.hasOwnProperty(key)) window[key] = value; 
-    })
+      if (window.pane === windowToFind && window.hasOwnProperty(key)) {
+        window[key] = value;
+      }
+    });
   };
 
   return {
     create: createWindow,
     getWindow: getWindowFromEvent,
     getEdited: getWindowEdited,
+    getSaved: getWindowSaved,
     setProp: setWindowProperty,
   }
 }

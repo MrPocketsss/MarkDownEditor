@@ -52,6 +52,38 @@ window.api.receive('file-saved', (message) => {
   }, 2000);
 });
 
+// When the user hits Cmd/Ctl+S or save from menu, the main process will tell the renderer
+// to save the file, and this will send the necessary stuff back
+window.api.receive('call-save-file', () => {
+  window.api.send('save-file', { path: currentFilePath, text: markdownView.value });
+});
+
+// When the user hits Shift+Cmd/Ctl+S or export from menu, the main process will 
+// tell the renderer to save the file, and this will send the necessary stuff back
+window.api.receive('call-export-file', () => {
+  let page = `
+  <!DOCTYPE html>
+  <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+      <title>${currentFilePath}</title>
+    </head>
+    <body>
+      ${htmlView.innerHTML}
+    </body>
+  </html>  
+  `;
+  window.api.send('export-html', page);
+});
+
+// When the user hist Cmd/Ctl+O or open from menu, the main process will
+// tell the renderer to call the open-file channel to start opening a file.
+window.api.receive('call-open-file', () => {
+  window.api.send('open-file');
+})
+
 // If we are closing the browser window (this is kind of hacky)
 window.api.receive('window-closed', () => {
   window.api.send('close-window');
@@ -72,7 +104,6 @@ const updateUserInterface = (isEdited) => {
   window.api.send('set-edited', isEdited);
 
   // Enable buttons based on whether we are in an edited file
-  saveMarkdownButton.disabled = !isEdited;
   revertButton.disabled = !isEdited;
 };
 
@@ -163,7 +194,6 @@ markdownView.addEventListener('dragover', (event) => {
 markdownView.addEventListener('dragleave', () => {
   markdownView.classList.remove('drag-over');
 });
-
 
 markdownView.addEventListener('drop', (event) => {
   event.preventDefault();

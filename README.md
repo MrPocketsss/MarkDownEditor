@@ -5,7 +5,7 @@ Copy the project using git clone. This project was packaged using yarn.
 ### Running
 In order to run the application, run
 
- >`yarn start` 
+ >`yarn start`
 
 To build a compiled version of the application run 
 

@@ -1,4 +1,4 @@
-const { app, ipcMain } = require("electron");
+const { app, ipcMain, Menu, shell } = require("electron");
 const path = require('path');
 const fs = require("fs");
 
@@ -8,8 +8,134 @@ const windows = require('./Window').windows;
 // Require the dialog factory function to deal with the various dialogs
 const dialog = require('./Dialog').dialog;
 
+app.setName('Markdown Editor');
+const isMac = process.platform === 'darwin'; // check if we're running mac for the Menu
+const isDev = true;
 const pathToIndex = `file://${__dirname}/index.html`;
 const pathToBridge = path.join(__dirname, "renderBridge.js");
+const template = [
+  // { role: appMenu }
+  ...(isMac ? [{
+    label: app.name,
+    submenu: [
+      { role: 'about' },
+      { type: 'separator' },
+      { role: 'services' },
+      { type: 'separator' },
+      { role: 'hide' },
+      { role: 'hideothers' },
+      { role: 'unhide' },
+      { type: 'separator' },
+      { role: 'quit' }
+    ]
+  }] : []), 
+  // { role: File }
+  {
+    label: 'File',
+    submenu: [
+      {
+        label: 'New File',
+        accelerator: 'CommandOrControl+N',
+        click: () => windows.create(pathToIndex, pathToBridge)
+      },
+      {
+        label: 'Open File',
+        accelerator: 'CommandOrControl+O',
+        click: (item, focusedWindow) => {
+          // for macs, we need to check if we're opening from a window, or just from the menu
+          // with no windows open
+          if (!focusedWindow) {
+            // if there isn't one, then create a window and call open file from there
+            let currentWindow = wondows.create(pathToIndex, pathToBridge);
+            currentWindow.on('show', () => {
+              currentWindow.webContents.send('call-open-file');
+            });
+          }
+          // if we have a window up and focuesed, send the call file open through that
+          focusedWindow.webContents.send('call-open-file');
+        }
+      },
+      {
+        label: 'Save File',
+        accelerator: 'CommandOrControl+S',
+        click: (item, focusedWindow) => {
+          if (!focusedWindow) {
+            return dialog.error({ title: 'Cannot save or export', message: 'There is currently no active document to save or export.' })
+          }
+          focusedWindow.webContents.send('call-save-file');
+        }
+      },
+      {
+        label: 'Export HTML',
+        accelerator: 'Shift+CommandOrControl+S',
+        click: (item, focusedWindow) => {
+          if (!focusedWindow) {
+            return dialog.error({ title: 'Cannot save or export', message: 'There is currently no active document to save or export.' })
+          }
+          focusedWindow.webContents.send('call-export-file');
+        }
+      }
+    ]
+  },
+  // { role: Edit}
+  {
+    label: 'Edit',
+    submenu: [
+      { role: 'undo' },
+      { role: 'redo' },
+      { type: 'separator' },
+      { role: 'cut' },
+      { role: 'copy' },
+      { role: 'paste' },
+      ...(isMac ? [
+        { role: 'pasteAndMatchStyle' },
+        { role: 'delete' },
+        { role: 'selectAll' },
+        { type: 'separator' },
+        {
+          label: 'Speech',
+          submenu: [
+            { role: 'startspeaking' },
+            { role: 'stopspeaking' }
+          ]
+        }
+      ] : [
+        { role: 'selectAll' }
+      ])
+    ]
+  },
+  // { role: Window }
+  {
+    label: 'Window',
+    submenu: [
+      { role: 'minimize' },
+      ...(isMac ? [
+        { type: 'separator' },
+        { role: 'front' },
+        { type: 'separator' },
+        { role: 'window' }
+      ] : [
+        { role: 'close' }
+      ])
+    ]
+  },
+  // { role: help }
+  {
+    label: 'help',
+    submenu: [
+      { 
+        label: 'Learn More',
+        click: async () => {
+          await shell.openExternal('https://electronjs.org');
+        }
+      },
+      ...(isDev ? [
+        { role: 'toggledevtools' },
+      ] : []),
+    ]
+  }
+];
+
 
 // Add a map of all the files we're watching
 const openFiles = new Map();
@@ -20,6 +146,8 @@ const defaultPath = app.getPath('documents');
 
 
 app.on("ready", () => {
+  appMenu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(appMenu);
   windows.create(pathToIndex, pathToBridge);
 });
 
@@ -55,30 +183,38 @@ const packageFile = (filePath) => {
     text: fs.readFileSync(filePath).toString()
   };
   return content;
-}
+};
 
 // A function to watch for changes in open files
 const startWatchingFiles = (event, filePath) => {
   // Closes the existing watcher if there is one
-  let currentWindow = windows.getWindow(event);
+  const currentWindow = windows.getWindow(event);
 
   // if there are no currently watched files, don't delete them
   if (openFiles.size > 0) stopWatchingFile(currentWindow)
 
   // create a watcher object, and if it fires a "change" event, send the changes back
   const watcher = fs.watchFile(filePath, (event) => {
-    dialog.externalUnsaved(currentWindow)
-      .then(user => {
-        if (user.response === 0) {
-          currentWindow.webContents.send('file-opened', packageFile(filePath))
-        }
-      })
-      .catch(error => console.log(error));
+    // make sure that the trigger for the watch call isn't us
+    const isSaved = windows.getSaved(currentWindow);
+    if(!isSaved) {
+      dialog.externalUnsaved(currentWindow)
+        .then(user => {
+          if (user.response === 0) {
+            currentWindow.webContents.send('file-opened', packageFile(filePath))
+          }
+        })
+        .catch(error => console.log(error));
+    } else {
+      // if it was us who called it, then we just saved the file, so we can remove the 
+      // "just saved" property.
+      windows.setProp(currentWindow, 'isSaved', false);
+    }
   });
 
   // Track the watcher so we can stop it later.
   openFiles.set(currentWindow, watcher);
-}
+};
 
 const stopWatchingFile = (windowToClose) => {
   if (openFiles.has(windowToClose)) {
@@ -87,7 +223,7 @@ const stopWatchingFile = (windowToClose) => {
   } else {
     console.log(`The map didn't have the specified window.`);
   }
-}
+};
 
 const checkFileAllowed = (filePath) => {
   // get the extension of the file
@@ -95,20 +231,16 @@ const checkFileAllowed = (filePath) => {
 
   // return whether the filetype is valid or not
   return (fileTypes.includes(ext)) ? true : false;
-}
+};
 
 const chooseFile = (currentWindow, event, path = null) => {
-  console.log('We either had no unsaved changes, or we are fine with wiping them')
   //check to see if I have a file already in mind
   if (path) {
-    console.log('We got a path already')
     if (checkFileAllowed(path)) openFile(event, path);
   } else {
-    console.log('We did not have a path to start with')
     // if no pre-determined file, ask the user
     dialog.open(currentWindow)
       .then(results => {
-        console.log(`the user chose ${results.filePaths[0]}`)
         // and see if the user chose a valid file
         if (checkFileAllowed(results.filePaths[0])) openFile(event, results.filePaths[0]);
       })
@@ -120,35 +252,27 @@ const openFile = (event, pathToOpen) => {
   // now that we have a filePath in mind, send to DOM 
   // or let the user know they chose the wrong thing
   if (pathToOpen) {
-    console.log('the path was valid, send back to dom')
     startWatchingFiles(event, pathToOpen);
     event.reply('file-opened', packageFile(pathToOpen));
   } else {
-    console.log('the path was invalid, display error')
     let options = {
       title: 'Invalid File',
       content: 'This application only supports .md, .markdown, and .txt files'
     };
     dialog.error(options);
   }
-}
+};
 
 // ipcMain functionality
 // Receiving
 // Open a file 
 ipcMain.on('open-file', (event, path) => {
-  console.log(path);
   // Before we open a file, check to see if there is editing done on a file already there
   let currentWindow = windows.getWindow(event);
   let edited = windows.getEdited(currentWindow);
 
-  console.log('An open file call was made.');
-  console.log(`We got this path:`);
-  console.log(path)
-
   // if there is an open, edited file - warn the users
   if (edited) {
-    console.log('The document has unsaved changes')
     dialog.overwrite(currentWindow)
       .then(user => {
         // if the user chooses to continue, try to open a file
@@ -189,6 +313,7 @@ ipcMain.on('save-file', (event, content) => {
         }
         // set the window to not being edited anymore
         windows.setProp(event, 'isEdited', false);
+        windows.setProp(event, 'isSaved', true);
 
         // send back to renderer that the file saved successfully
         event.reply('file-saved', { text: 'File Saved Successfully', status: 'success' });
@@ -198,6 +323,7 @@ ipcMain.on('save-file', (event, content) => {
     //otherwise, save the file
     fs.writeFileSync(content.path, content.text);
     windows.setProp(event, 'isEdited', false);
+    windows.setProp(event, 'isSaved', true);
     event.reply('file-saved', { text: 'File Saved Successfully', status: 'success' });
   }
 });
