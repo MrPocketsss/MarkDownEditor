@@ -22,6 +22,8 @@ window.api.receive('file-opened', (content) => {
     currentFilePath = content.path;
     loadedTitle = currentFilePath.split('\\').pop();
     document.title = `${loadedTitle}`;
+    showFileButton.disabled = false;
+    openInDefaultButton.disabled = false;
   }
   if (content.text.length > 0) {
     originalContent = content.text;
@@ -83,6 +85,16 @@ window.api.receive('call-export-file', () => {
 window.api.receive('call-open-file', () => {
   window.api.send('open-file');
 })
+// When the user hist Cmd/Ctl+D or open from menu, the main process will
+// tell the renderer to call the open-file channel to start opening a file.
+window.api.receive('call-show-file', () => {
+  showFile();
+})
+// When the user hist Shift+Cmd/Ctl+F or open from menu, the main process will
+// tell the renderer to call the open-file channel to start opening a file.
+window.api.receive('call-open-default', () => {
+  openInDefaultApplication();
+})
 
 // If we are closing the browser window (this is kind of hacky)
 window.api.receive('window-closed', () => {
@@ -115,6 +127,22 @@ const updateScroll = () => {
   }
 
 };
+
+// function to make an api call if we have a file path
+const showFile = () => {
+  if (!currentFilePath) {
+    return alert('This file has not been saved to the file system');
+  }
+  window.api.send('show-file', currentFilePath);
+}
+
+// function to make an api call if we have a file path
+const openInDefaultApplication = () => {
+  if (!currentFilePath) {
+    return alert('This file has not been saved to the file system');
+  }
+  window.api.send('open-default', currentFilePath);
+}
 
 // Pass the plain-text to the rendered markdown div
 markdownView.addEventListener("input", (event) => {
@@ -177,6 +205,12 @@ revertButton.addEventListener('click', () => {
   updateUserInterface(false);
   document.title = loadedTitle;
 });
+
+// Launch the file explorer
+showFileButton.addEventListener('click', showFile);
+
+// Launch the default application
+openInDefaultButton.addEventListener('click', openInDefaultApplication);
 
 
 

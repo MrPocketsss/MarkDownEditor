@@ -60,7 +60,7 @@ const template = [
         accelerator: 'CommandOrControl+S',
         click: (item, focusedWindow) => {
           if (!focusedWindow) {
-            return dialog.error({ title: 'Cannot save or export', message: 'There is currently no active document to save or export.' })
+            return dialog.error({ title: 'Cannot save or export', message: 'There is currently no active document to save or export.' });
           }
           focusedWindow.webContents.send('call-save-file');
         }
@@ -70,11 +70,32 @@ const template = [
         accelerator: 'Shift+CommandOrControl+S',
         click: (item, focusedWindow) => {
           if (!focusedWindow) {
-            return dialog.error({ title: 'Cannot save or export', message: 'There is currently no active document to save or export.' })
+            return dialog.error({ title: 'Cannot save or export', message: 'There is currently no active document to save or export.' });
           }
           focusedWindow.webContents.send('call-export-file');
         }
-      }
+      },
+      { type: 'separator' },
+      {
+        label: 'Show File',
+        accelerator: 'CommandOrControl+F',
+        click: (item, focusedWindow) => {
+          if (!focusedWindow) {
+            return dialog.error({ title: 'Cannot show file\'s location', message: 'There is currently no document to show.' });
+          }
+          focusedWindow.webContents.send('call-show-file');
+        }
+      },
+      {
+        label: 'Open in Default Editor',
+        accelerator: 'CommandOrControl+D',
+        click: (item, focusedWindow) => {
+          if (!focusedWindow) {
+            return dialog.error({ title: 'Cannot Open File in Default Editor', message: 'There is currently no active document to open.' });
+          }
+          focusedWindow.webContents.send('call-open-default');
+        }
+      },
     ]
   },
   // { role: Edit}
@@ -360,4 +381,14 @@ ipcMain.on('close-window', (event, args) => {
     // if the file wasn't edited, close the window
     windowToClose.destroy();
   }
+});
+
+// Launch the file explorer
+ipcMain.on('show-file', (event, path) => {
+  shell.showItemInFolder(path);
+});
+
+// Launch the default application
+ipcMain.on('open-default', (event, path) => {
+  shell.openPath(path);
 });
