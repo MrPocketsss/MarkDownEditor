@@ -3,8 +3,9 @@ const { BrowserWindow } = require('electron');
 const Windows = () => {
   const windowSet = new Set();
 
-  const createWindow = (pathToIndex, pathToBridge) => {
-    let x, y;
+  const createWindow = (options) => {
+    console.log(options.width, options.height);
+    let x, y = 250;
 
     // Gets the browser window that is currently active
     const currentWindow = BrowserWindow.getFocusedWindow();
@@ -19,6 +20,8 @@ const Windows = () => {
     let newWindow = new BrowserWindow({
       x, // set the position of the window
       y,
+      width: options.width,
+      height: options.height,
       // hide the window when it's first created
       show: false,
       // allow us to use require in HTML
@@ -27,12 +30,12 @@ const Windows = () => {
         nodeIntegration: false, // default, but good to ensure
         contextIsolation: true, // protect against prototype pollution attacks
         enableRemoteModule: false, // don't allow remote 
-        preload: pathToBridge // use a preloaded script
+        preload: options.bridge // use a preloaded script
       },
     });
 
     //Loads the app/index.html in the main window
-    newWindow.webContents.loadURL(pathToIndex);
+    newWindow.webContents.loadURL(options.path);
 
     // Shows the window when the DOM is loaded
     newWindow.once("ready-to-show", () => {

@@ -20,6 +20,7 @@ body {
   margin: 0;
   padding: 0;
   position: absolute;
+  z-index: 1;
 }
 
 /* Use the OS default font in application */
@@ -144,4 +145,67 @@ button:disabled {
   background-color: white;
   font-size: medium;
   color: rgb(209, 102, 102);
+}
+
+.row {
+  display: flex;
+  flex-flow: row nowrap;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+.col {
+  display: flex;
+  flex-flow: column nowrap;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.settings-container {
+  position: absolute;
+  z-index: 10;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+.backdrop {
+  backdrop-filter: blur(10px);
+  width: 100%;
+  height: 100%;
+}
+
+#settings-panel {
+  background-color: white;
+  position: absolute;
+  top: 0; 
+  left: 0;
+  width: 80vw;
+  height: 80vh;
+  margin: 10vh 10vw;
+  z-index: 11;
+  border: 1px solid #555555;
+}
+
+.title {
+  background-color: #BBBBBB;
+}
+.title > span { padding-left: 1rem; }
+#settings-close {
+  background-color: #BBBBBB;
+}
+
+#settings-close:hover {
+  background-color: #fd2f2f;
+  color: white;
+}
+
+#settings-panel .content {
+  width: calc(100% - 2rem);
+  height: calc(100% - 2rem - 30px);
+  padding: 1rem;
+}
+#settings-panel .row:last-child {
+  align-items: flex-start;
 }

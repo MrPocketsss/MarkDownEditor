@@ -12,15 +12,29 @@
 
 <body>
   <div id="toast" class="toast hide"></div>
+  <div class="settings-container hide">
+    <div class="backdrop"></div>
+    <div id="settings-panel">
+      <div class="row title">
+        <span>Settings</span>
+        <button id="settings-close">X</button>
+      </div>
+      <div class="row content">
+        <div class="col">
+          <h2>Window size</h2>
+          <label for="width">Width: </label>
+          <input type="text" id="width" />
+          <label for="height">Height: </label>
+          <input type="text" id="height">
+          <button id="save-settings">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <section class="controls">
-    <button id="new-file">New File</button>
-    <button id="open-file">Open File</button>
-    <button id="save-markdown">Save File</button>
     <button id="revert" disabled>Revert</button>
-    <button id="save-html">Save HTML</button>
-    <button id="show-file" disabled>Show File</button>
-    <button id="open-in-default" disabled>Open in Default Application</button>
+    <button id="launch-settings">Settings</button>
   </section>
 
   <section class="content">

@@ -1,13 +1,15 @@
 const markdownView = document.querySelector("#markdown");
 const htmlView = document.querySelector("#html");
-const newFileButton = document.querySelector("#new-file");
-const openFileButton = document.querySelector("#open-file");
-const saveMarkdownButton = document.querySelector("#save-markdown");
+const settingsPanel = document.querySelector('.settings-container');
 const revertButton = document.querySelector("#revert");
-const saveHtmlButton = document.querySelector("#save-html");
-const showFileButton = document.querySelector("#show-file");
-const openInDefaultButton = document.querySelector("#open-in-default");
+const openSettings = document.querySelector('#launch-settings');
+const closeSettings = document.querySelector('#settings-close');
 const toast = document.querySelector('#toast');
+
+// collect the settings elements
+const widthSetting = document.querySelector('#width');
+const heightSetting = document.querySelector('#height');
+const saveSettings = document.querySelector('#save-settings');
 
 // global variables for tracking current file
 let currentFilePath = null;
@@ -84,22 +86,31 @@ window.api.receive('call-export-file', () => {
 // tell the renderer to call the open-file channel to start opening a file.
 window.api.receive('call-open-file', () => {
   window.api.send('open-file');
-})
+});
 // When the user hist Cmd/Ctl+D or open from menu, the main process will
 // tell the renderer to call the open-file channel to start opening a file.
 window.api.receive('call-show-file', () => {
   showFile();
-})
+});
 // When the user hist Shift+Cmd/Ctl+F or open from menu, the main process will
 // tell the renderer to call the open-file channel to start opening a file.
 window.api.receive('call-open-default', () => {
   openInDefaultApplication();
-})
+});
 
 // If we are closing the browser window (this is kind of hacky)
 window.api.receive('window-closed', () => {
   window.api.send('close-window');
 });
+
+// Load the current settings into the settings panel 
+window.api.receive('update-settings', (settings) => {
+  widthSetting.value = settings.width;
+  heightSetting.value = settings.height;
+});
+
+// try to get the settings
+window.api.send('get-settings');
 
 // helper function wrapping the marked module
 const renderMarkdownToHtml = (markdown) => {
@@ -162,42 +173,6 @@ markdownView.addEventListener('scroll', () => {
   scrolled = true;
 });
 
-// Open File Action
-openFileButton.addEventListener("click", () => {
-  window.api.send('open-file');
-});
-
-// New File Action
-newFileButton.addEventListener("click", () => {
-  window.api.send('create-window');
-});
-
-// Export the file as HTML Action
-saveHtmlButton.addEventListener('click', () => {
-  let page = `
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
-      <title>${currentFilePath}</title>
-    </head>
-    <body>
-      ${htmlView.innerHTML}
-    </body>
-  </html>  
-  `;
-  window.api.send('export-html', page);
-});
-
-// Save the file
-saveMarkdownButton.addEventListener('click', () => {
-  // send the content to the main process for saving
-  window.api.send('save-file', { path: currentFilePath, text: markdownView.value });
-  originalContent = markdownView.value;
-});
-
 // Revert to previous state action
 revertButton.addEventListener('click', () => {
   markdownView.value = originalContent;
@@ -205,6 +180,16 @@ revertButton.addEventListener('click', () => {
   updateUserInterface(false);
   document.title = loadedTitle;
 });
+
+// Display the settings panel
+openSettings.addEventListener('click', () => {
+  settingsPanel.classList.remove('hide');
+})
+
+// hide the settings panel
+closeSettings.addEventListener('click', () => {
+  settingsPanel.classList.add('hide');
+})
 
 // Launch the file explorer
 showFileButton.addEventListener('click', showFile);
@@ -234,3 +219,13 @@ markdownView.addEventListener('drop', (event) => {
   window.api.send('open-file', event.dataTransfer.files[0].path);
   markdownView.classList.remove('drag-over');
 });
+
+saveSettings.addEventListener('click', (event) => {
+  event.preventDefault();
+  window.api.send('update-settings', { 
+    windowBounds: { 
+      width: widthSetting.value, 
+      height: heightSetting.value 
+    }
+  });
+})

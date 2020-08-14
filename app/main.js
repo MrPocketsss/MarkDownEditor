@@ -8,6 +8,9 @@ const windows = require('./Window').windows;
 // Require the dialog factory function to deal with the various dialogs
 const dialog = require('./Dialog').dialog;
 
+// Require the settings factory to set and retrieve user settings
+const Store = require('./Store');
+
 app.setName('Markdown Editor');
 const isMac = process.platform === 'darwin'; // check if we're running mac for the Menu
 const isDev = true;
@@ -36,7 +39,10 @@ const template = [
       {
         label: 'New File',
         accelerator: 'CommandOrControl+N',
-        click: () => windows.create(pathToIndex, pathToBridge)
+        click: () => {
+          let settings = getSettings();
+          windows.create({path: pathToIndex, bridge: pathToBridge, width: settings.width, height: settings.height});
+        }
       },
       {
         label: 'Open File',
@@ -156,7 +162,17 @@ const template = [
     ]
   }
 ];
-
+const store = Store();
+store.init({
+  userDataPath: app.getPath('userData'),
+  configName: 'user-preferences',
+  defaults: {
+    windowBounds: {
+      width: 800,
+      height: 600
+    }
+  }
+});
 
 // Add a map of all the files we're watching
 const openFiles = new Map();
@@ -167,16 +183,18 @@ const defaultPath = app.getPath('documents');
 
 
 app.on("ready", () => {
+  let settings = getSettings();
   appMenu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(appMenu);
-  windows.create(pathToIndex, pathToBridge);
+  windows.create({path: pathToIndex, bridge: pathToBridge, width: settings.width, height: settings.height});
 });
 
 // Listen for open-file events, which provide the path of the externally
 // opened file and then passes that file path to our openFile function
 app.on('will-finish-launching', () => {
   app.on('open-file', (event, file) => {
-    const win = windows.create(pathToIndex, pathToBridge);
+    let settings = getSettings();
+    const win = windows.create({path: pathToIndex, bridge: pathToBridge, width: settings.width, height: settings.height});
     win.once('ready-to-show', () => {
       win.webContents.send('file-opened', packageFile(file));
     })
@@ -186,7 +204,8 @@ app.on('will-finish-launching', () => {
 // Create a window when application is open and there are no windows
 // Also for macOS
 app.on("activate", (event, hasVisibleWindows) => {
-  if (!hasVisibleWindows) windows.create(pathToIndex, pathToBridge);
+  let settings = getSettings();
+  if (!hasVisibleWindows) windows.create({path: pathToIndex, bridge: pathToBridge, width: settings.width, height: settings.height});
 });
 
 // Prevent electron from killing app on macOS
@@ -284,6 +303,20 @@ const openFile = (event, pathToOpen) => {
   }
 };
 
+const getSettings = () => {
+  let { width, height } = store.getSetting('windowBounds');
+  width = parseInt(width);
+  height = parseInt(height);
+  if (width < 600) {
+    width = 600;
+  }
+  if (height < 400) {
+    height = 400;
+  }
+
+  return { width: width, height: height }
+};
+
 // ipcMain functionality
 // Receiving
 // Open a file 
@@ -351,7 +384,8 @@ ipcMain.on('save-file', (event, content) => {
 
 // Open a new application window
 ipcMain.on('create-window', (event, args) => {
-  windows.create(pathToIndex, pathToBridge);
+  let settings = getSettings();
+  windows.create({path: pathToIndex, bridge: pathToBridge, width: settings.width, height: settings.height});
 });
 
 // Sets the BrowserWindow's edited property
@@ -392,3 +426,13 @@ ipcMain.on('show-file', (event, path) => {
 ipcMain.on('open-default', (event, path) => {
   shell.openPath(path);
 });
+
+ipcMain.on('update-settings', (event, settings) => {
+  store.setSetting('windowBounds', settings.windowBounds);
+});
+
+ipcMain.on('get-settings', (event) => {
+  let settings = store.getSetting('windowBounds');
+  let currentWindow = windows.getWindow(event);
+  currentWindow.webContents.send('update-settings', settings);
+})
